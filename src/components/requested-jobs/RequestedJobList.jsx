@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import { Card, Button, Col, Row, message } from "antd";
-import { BookmarkIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect } from "react";
+import { Card, Button, Col, Row, message, Tag } from "antd";
+import { EyeIcon } from "@heroicons/react/24/outline";
 import Api from "../../services/Api";
 import { useNavigate } from "react-router-dom";
-import JobFallback from "../../assets/images/job.jpg";
 import NotFoundIcon from "../../assets/images/404.png";
+import JobIcon from "../../assets/images/job.jpg";
 
 const calculateExpiresIn = (expired_at) => {
   if (!expired_at) return "No expiration date";
@@ -28,42 +28,28 @@ const calculateExpiresIn = (expired_at) => {
   return `expires in ${differenceInMinutes} minutes`;
 };
 
-const SavedJobList = () => {
+const RequestedJobList = () => {
   const [jobs, setJobs] = useState([]);
   const [shouldRefetch, setShouldRefetch] = useState(false);
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_IMAGE_API;
 
   useEffect(() => {
-    Api.get("/saved/jobs", {
+    Api.get("/requested/jobs", {
       params: {
         page: 1,
         pageSize: 8,
       },
     })
       .then((response) => {
-        const jobsData = response.data;
+        const jobsData = response.data ?? [];
         setJobs(jobsData);
       })
       .catch((error) => {
-        console.error("Error fetching saved jobs:", error);
-        message.error("Failed to load saved jobs");
+        console.error("Error fetching requested jobs:", error);
+        message.error("Failed to load requested jobs");
       });
   }, [shouldRefetch]);
-
-  const handleBookmarkClick = useCallback((index, job_id) => {
-    Api.post(`/jobs/${job_id}/unsave`)
-      .then(() => {
-        message.destroy();
-        message.success("Job removed from saved list");
-        setShouldRefetch((prev) => !prev);
-      })
-      .catch((error) => {
-        message.destroy();
-        message.error("Failed to remove job from saved list");
-        console.error("Error removing job from saved list:", error);
-      });
-  }, []);
 
   const handleApplyJob = (job_id) => {
     navigate(`/jobs/${job_id}/apply`);
@@ -72,11 +58,13 @@ const SavedJobList = () => {
   return (
     <div className="py-8 md:px-12">
       <div className="container mx-auto">
+        <h2 className="text-2xl font-bold mb-6 mx-2 text-[#06A73B]">My Invitations</h2>
         <Card className="relative rounded-[20px] shadow-lg ">
           {jobs.length === 0 ? (
             <div className="flex flex-col justify-center items-center h-64">
               <img src={NotFoundIcon} alt="Not Found" className="w-64 mb-4" />
-              <p className="text-xl font-semibold">No jobs saved</p>
+              <p className="text-xl font-semibold">No job invitations yet</p>
+              <p className="text-gray-500 text-sm">Companies will invite you directly to jobs if your AI profile matches well.</p>
             </div>
           ) : (
             <>
@@ -87,10 +75,13 @@ const SavedJobList = () => {
                       <div className="flex justify-between items-start">
                         <div className="flex space-x-6">
                           <img
-                            src={job.company.logo_url ? `${API_URL}/${job.company.logo_url}` : JobFallback}
+                            src={`${API_URL}/${job.company.logo_url}`}
                             alt="Job Icon"
-                            onError={(e) => { e.target.onerror = null; e.target.src = JobFallback; }}
-                            className="w-16 h-16 object-cover rounded-full"
+                            className="w-16"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = JobIcon;
+                            }}
                           />
                           <div className="flex flex-col">
                             <h3 className="text-[15px] font-semibold">
@@ -104,36 +95,12 @@ const SavedJobList = () => {
                             </p>
                           </div>
                         </div>
-                        <Button
-                          style={{
-                            borderRadius: 12,
-                            backgroundColor: "green",
-                            width: 46,
-                            height: 40,
-                          }}
-                          onClick={() => handleBookmarkClick(index, job.job_id)}
-                        >
-                          <BookmarkIcon
-                            className="size-[14px]"
-                            style={{ color: "white" }}
-                          />
-                        </Button>
+                        <Tag color={job.status === "applied" ? "green" : "volcano"}>
+                            {job.status === "applied" ? "Applied" : "Not Applied"}
+                        </Tag>
                       </div>
 
                       <div className="relative flex justify-end items-start mt-8">
-                        {/* <div
-                          style={{
-                            width: "210px",
-                            height: "35px",
-                            backgroundColor: "#F4F4F4",
-                            borderRadius: "12px",
-                          }}
-                          className="flex items-center justify-center"
-                        >
-                          <span className="text-xs font-medium ">
-                            Nanti buat applied at klo applied at, klo ga gmn?
-                          </span>
-                        </div> */}
                       </div>
 
                       <div className="flex justify-between items-center mt-4">
@@ -149,6 +116,7 @@ const SavedJobList = () => {
                               width: 100,
                               borderColor: "#BBB",
                             }}
+                            icon={<EyeIcon className="w-4 h-4"/>}
                           >
                             <span
                               className="text-[12px] font-medium"
@@ -156,7 +124,7 @@ const SavedJobList = () => {
                                 navigate(`/jobs/${job.job_id}`);
                               }}
                             >
-                              View Detail
+                              Detail
                             </span>
                           </Button>
                           <Button
@@ -164,21 +132,19 @@ const SavedJobList = () => {
                               borderRadius: 12,
                               height: 40,
                               width: 100,
-                              backgroundColor: job.is_applied
+                              backgroundColor: job.status === "applied"
                                 ? "#BBBBBB"
                                 : "#06A73B",
-                              color: job.is_applied ? "black" : "white",
+                              color: job.status === "applied" ? "black" : "white",
                             }}
                             onClick={() => {
-                              if (job.is_applied) {
-                                //
-                              } else {
+                              if (job.status !== "applied") {
                                 handleApplyJob(job.job_id);
                               }
                             }}
                           >
                             <span className="text-[12px] font-medium">
-                              Apply
+                              {job.status === "applied" ? "Applied" : "Apply"}
                             </span>
                           </Button>
                         </div>
@@ -195,4 +161,4 @@ const SavedJobList = () => {
   );
 };
 
-export default SavedJobList;
+export default RequestedJobList;
